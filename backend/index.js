@@ -2,28 +2,22 @@ const express = require("express");
 const crypto = require("crypto");
 
 const app = express();
-
 const port = process.env.PORT || 3000;
 
 // Temporary in-memory users
 const users = [];
 
-// Validation
-const emailRegex =
-  /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+// Validation regex patterns
+const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const nameRegex = /^[a-zA-Z][a-zA-Z\s]{2,}$/;
+const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
 
-const nameRegex =
-  /^[a-zA-Z][a-zA-Z\s]{2,}$/;
-
-const passwordRegex =
-  /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
-
-const hashPassword = (password) =>
-  (() => {
-    const salt = crypto.randomBytes(16).toString("hex");
-    const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-    return `${salt}:${hash}`;
-  })();
+// Helper functions for password hashing & matching
+const hashPassword = (password) => {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+};
 
 const passwordsMatch = (password, storedPassword) => {
   const [salt, storedHash] = storedPassword.split(":");
@@ -37,19 +31,19 @@ const passwordsMatch = (password, storedPassword) => {
 
 const publicUser = ({ id, fullName, email }) => ({ id, fullName, email });
 
-// JSON middleware
+// Middleware
 app.use(express.json());
 
-// CORS
+// CORS Configuration
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header(
     "Access-Control-Allow-Headers",
-    "Content-Type"
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
   );
   res.header(
     "Access-Control-Allow-Methods",
-    "GET,POST,OPTIONS"
+    "GET, POST, PUT, DELETE, OPTIONS"
   );
 
   if (req.method === "OPTIONS") {
@@ -59,7 +53,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check
+// Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({
     message: "Backend is connected",
@@ -67,25 +61,18 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Get users
+// Get users list
 app.get("/api/users", (req, res) => {
   res.json(users.map(publicUser));
 });
 
-// Register
+// Register endpoint
 app.post("/api/register", (req, res) => {
-  const {
-    fullName,
-    email,
-    password,
-    confirmPassword,
-  } = req.body;
+  const { fullName, email, password, confirmPassword } = req.body;
 
   if (
     ![fullName, email, password, confirmPassword].every(
-      (value) =>
-        typeof value === "string" &&
-        value.trim()
+      (value) => typeof value === "string" && value.trim()
     )
   ) {
     return res.status(400).json({
@@ -94,14 +81,11 @@ app.post("/api/register", (req, res) => {
   }
 
   const normalizedName = fullName.trim();
-  const normalizedEmail = email
-    .trim()
-    .toLowerCase();
+  const normalizedEmail = email.trim().toLowerCase();
 
   if (!nameRegex.test(normalizedName)) {
     return res.status(400).json({
-      message:
-        "Enter a valid name using at least 3 letters.",
+      message: "Enter a valid name using at least 3 letters.",
     });
   }
 
@@ -124,14 +108,11 @@ app.post("/api/register", (req, res) => {
     });
   }
 
-  const existingUser = users.find(
-    (user) => user.email === normalizedEmail
-  );
+  const existingUser = users.find((user) => user.email === normalizedEmail);
 
   if (existingUser) {
     return res.status(409).json({
-      message:
-        "An account with this email already exists.",
+      message: "An account with this email already exists.",
     });
   }
 
@@ -150,7 +131,7 @@ app.post("/api/register", (req, res) => {
   });
 });
 
-// Login
+// Login endpoint
 app.post("/api/login", (req, res) => {
   const { email, password } = req.body;
 
@@ -165,13 +146,8 @@ app.post("/api/login", (req, res) => {
     });
   }
 
-  const normalizedEmail = email
-    .trim()
-    .toLowerCase();
-
-  const user = users.find(
-    (user) => user.email === normalizedEmail
-  );
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = users.find((user) => user.email === normalizedEmail);
 
   if (!user || !passwordsMatch(password, user.passwordHash)) {
     return res.status(401).json({
@@ -184,12 +160,9 @@ app.post("/api/login", (req, res) => {
   });
 });
 
-// JSON error handling
+// JSON error handling middleware
 app.use((error, req, res, next) => {
-  if (
-    error instanceof SyntaxError &&
-    "body" in error
-  ) {
+  if (error instanceof SyntaxError && "body" in error) {
     return res.status(400).json({
       message: "Request body must be valid JSON.",
     });
@@ -198,22 +171,19 @@ app.use((error, req, res, next) => {
   next(error);
 });
 
-// 404
+// 404 Fallback
 app.use((req, res) => {
   res.status(404).json({
     message: "API route not found.",
   });
 });
 
-// Start a listener only when this file is run directly for local development.
-// Vercel imports the app through api/[...route].js and supplies the request listener.
+// Start a listener only for local development. Vercel imports this app as a
+// serverless function and provides the request listener itself.
 if (require.main === module) {
   app.listen(port, () => {
-    console.log(
-      `Backend server is running on http://localhost:${port}`
-    );
+    console.log(`Backend server is running on http://localhost:${port}`);
   });
 }
 
-// Vercel
 module.exports = app;
