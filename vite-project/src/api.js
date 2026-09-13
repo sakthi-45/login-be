@@ -1,6 +1,8 @@
+const BACKEND_URL = "https://baen-login.vercel.app";
+
 const request = async (path, options = {}) => {
   try {
-    const response = await fetch(path, {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -9,6 +11,7 @@ const request = async (path, options = {}) => {
     });
 
     const contentType = response.headers.get("content-type") || "";
+
     let data;
 
     if (contentType.includes("application/json")) {
@@ -19,19 +22,24 @@ const request = async (path, options = {}) => {
     }
 
     if (!response.ok) {
-      throw new Error(data.message || `Request failed with status ${response.status}`);
+      throw new Error(
+        data.message || `Request failed with status ${response.status}`
+      );
     }
 
     return data;
   } catch (error) {
     if (error instanceof TypeError) {
-      // Handles network errors like CORS blocking or connection drops
-      throw new Error("Unable to connect to the backend server.", { cause: error });
+      throw new Error("Unable to connect to the backend server.", {
+        cause: error,
+      });
     }
+
     throw error;
   }
 };
 
+// Backend health check
 export const getBackendHealth = () => request("/api/health");
 
 // Register user
