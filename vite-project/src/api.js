@@ -10,6 +10,9 @@ const request = async (path, options = {}) => {
       },
     });
 
+    // Check if the response is JSON and parse it accordingly
+    var a = 0
+
     const contentType = response.headers.get("content-type") || "";
     let data;
 
