@@ -81,6 +81,20 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Local-development compatibility for the shared Vercel auth endpoint.
+app.all("/api/auth", (req, res) => {
+  const action = req.method === "GET" ? req.query.action : req.body.action;
+  const method = action === "health" ? "GET" : "POST";
+
+  if (!['health', 'register', 'login'].includes(action)) {
+    return res.status(404).json({ message: "API route not found." });
+  }
+
+  req.method = method;
+  req.url = `/api/${action}`;
+  return app.handle(req, res);
+});
+
 // -----------------------------
 // Get Users
 // -----------------------------
